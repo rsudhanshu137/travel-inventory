@@ -6,8 +6,10 @@ Java 17 + Spring Boot 3.3, plain JDBC, file-backed H2 (`./data/travel.mv.db`). D
 
 Needs JDK 17+ and Maven 3.9+ (or run `mvn wrapper:wrapper` once to generate `./mvnw`).
 
+API runs on http://localhost:8080 by default (set `PORT=9090` etc. to change):
+
 ```bash
-mvn spring-boot:run          # API on http://localhost:8080  (PORT=9090 to change)
+mvn spring-boot:run
 ```
 
 Optional environment overrides (nothing secret is committed; there is no LLM or vendor call anywhere):

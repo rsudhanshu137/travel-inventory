@@ -38,7 +38,10 @@ import org.springframework.test.context.DynamicPropertySource;
  * Black-box tests over real HTTP against a real file-backed H2 database (never jdbc:h2:mem:).
  * Test numbers 1..10 map to the numbered list in the assignment brief.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+// travel.h2-web-console pinned off: it binds a fixed port (8082) and must never collide
+// with a concurrently running `mvn spring-boot:run`, regardless of outside env/VM-option settings.
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "travel.h2-web-console=false")
 class TravelApiTests {
 
     private static final Path DB_DIR = newTempDir();
