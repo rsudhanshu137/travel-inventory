@@ -51,23 +51,26 @@ happy paths, invoice PATCH, validation errors and a concurrent-PATCH tear test. 
 | `DELETE /invoices/{id}` | removes invoice + snapshot only |
 | `GET /health` | `{"status":"UP"}` |
 
-Errors are always `{"error": "<code>", "message": "…"}`. Money is rendered at currency scale (`"685.70"`).
+Errors are always `{"error": "<code>", "message": "…"}`. Money is rendered at currency scale (e.g. `685.70`).
 
 ## Example curls
 
-Payloads are in [`examples/`](examples) (the brief's seed fixtures, one file each).
+Payloads are in [`examples/`](examples) (the brief's seed fixtures, one file each). Run from the project root with the app running.
+
+**Easiest:** `./scripts/readme-curls.sh` runs every command below (needs bash; works on macOS). If you paste the block into zsh instead, paste a few lines at a time.
 
 ```bash
+setopt interactive_comments 2>/dev/null || true
 B=http://localhost:8080
 H='Content-Type: application/json'
-id() { grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4; }     # pull the server id out of a response
+getid() { grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4; }
 
 # --- create (each type)
-FLIGHT=$(curl -s -X POST $B/transactions -H "$H" -d @examples/flight.json         | id)
-HOTEL=$( curl -s -X POST $B/transactions -H "$H" -d @examples/hotel.json          | id)
-RAIL=$(  curl -s -X POST $B/transactions -H "$H" -d @examples/rail.json           | id)
-TRIP=$(  curl -s -X POST $B/transactions -H "$H" -d @examples/trip_fee.json       | id)
-CALL=$(  curl -s -X POST $B/transactions -H "$H" -d @examples/agent_call_fee.json | id)
+FLIGHT=$(curl -s -X POST $B/transactions -H "$H" -d @examples/flight.json         | getid)
+HOTEL=$( curl -s -X POST $B/transactions -H "$H" -d @examples/hotel.json          | getid)
+RAIL=$(  curl -s -X POST $B/transactions -H "$H" -d @examples/rail.json           | getid)
+TRIP=$(  curl -s -X POST $B/transactions -H "$H" -d @examples/trip_fee.json       | getid)
+CALL=$(  curl -s -X POST $B/transactions -H "$H" -d @examples/agent_call_fee.json | getid)
 echo $FLIGHT $HOTEL $RAIL $TRIP $CALL
 
 # --- duplicate create: same external_id twice (+ the thinner duplicate fixture) -> 409, exactly one row
@@ -85,8 +88,7 @@ curl -s "$B/transactions?limit=10&offset=0"
 curl -s -i "$B/transactions?limit=1000"          # 400
 
 # --- invoice by transaction id(s)
-INV=$(curl -s -X POST $B/invoices -H "$H" \
-  -d "{\"transaction_ids\":[\"$FLIGHT\",\"$HOTEL\",\"$RAIL\",\"$TRIP\",\"$CALL\"]}" | id)
+INV=$(curl -s -X POST $B/invoices -H "$H" -d "{\"transaction_ids\":[\"$FLIGHT\",\"$HOTEL\",\"$RAIL\",\"$TRIP\",\"$CALL\"]}" | getid)
 curl -s -X POST $B/invoices -H "$H" -d "{\"transaction_id\":\"$HOTEL\"}"       # single-id form
 curl -s $B/invoices/$INV                         # total 685.70, totals{…}, tax_rollup, fee_rollup, lines[]
 curl -s "$B/invoices?limit=10"
@@ -96,15 +98,13 @@ curl -s -i -X PATCH  $B/transactions/$FLIGHT -H "$H" -d '{"total": 999.00}'
 curl -s -i -X DELETE $B/transactions/$FLIGHT
 
 # --- patch / delete a transaction that is NOT on an invoice
-NEW=$(curl -s -X POST $B/transactions -H "$H" \
-  -d '{"type":"navan_fee","external_id":"fee-demo-1","currency":"EUR","occurred_at":"2026-03-12T10:00:00Z","total":10,"tax_lines":[],"fee_lines":[],"metadata":{"fee_kind":"agent_call_fee"}}' | id)
+NEW=$(curl -s -X POST $B/transactions -H "$H" -d '{"type":"navan_fee","external_id":"fee-demo-1","currency":"EUR","occurred_at":"2026-03-12T10:00:00Z","total":10,"tax_lines":[],"fee_lines":[],"metadata":{"fee_kind":"agent_call_fee"}}' | getid)
 curl -s -X PATCH  $B/transactions/$NEW -H "$H" -d '{"total": 12.50, "metadata": {"fee_kind":"agent_call_fee","description":"updated"}}'
 curl -s -i -X DELETE $B/transactions/$NEW        # 204
 
 # --- patch an invoice (replace the set, rebuild snapshot) / mixed currency -> 409
 curl -s -X PATCH $B/invoices/$INV -H "$H" -d "{\"transaction_ids\":[\"$FLIGHT\",\"$HOTEL\"]}"   # total 551.70
-USD=$(curl -s -X POST $B/transactions -H "$H" \
-  -d '{"type":"navan_fee","external_id":"fee-usd-1","currency":"USD","occurred_at":"2026-03-12T10:00:00Z","total":10,"tax_lines":[],"fee_lines":[],"metadata":{"fee_kind":"trip_fee"}}' | id)
+USD=$(curl -s -X POST $B/transactions -H "$H" -d '{"type":"navan_fee","external_id":"fee-usd-1","currency":"USD","occurred_at":"2026-03-12T10:00:00Z","total":10,"tax_lines":[],"fee_lines":[],"metadata":{"fee_kind":"trip_fee"}}' | getid)
 curl -s -i -X PATCH $B/invoices/$INV -H "$H" -d "{\"transaction_ids\":[\"$FLIGHT\",\"$USD\"]}"  # 409, invoice unchanged
 
 # --- delete an invoice (transactions survive)
