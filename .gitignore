@@ -1,0 +1,11 @@
+target/
+data/
+*.db
+*.mv.db
+*.trace.db
+.DS_Store
+__MACOSX/
+.env
+.idea/
+*.iml
+config/
